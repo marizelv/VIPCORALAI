@@ -366,6 +366,14 @@
         }
 
 
+        .confidence-value {
+
+            color: #0077b6;
+
+            font-weight: bold;
+        }
+
+
         /* =====================================================
            TOP 3
            ===================================================== */
@@ -419,6 +427,8 @@
         .prediction-confidence {
 
             font-weight: bold;
+
+            color: #222;
         }
 
 
@@ -591,7 +601,7 @@
         class="status"
     >
 
-        Please upload the TensorFlow Lite model.
+        Please upload the TFLite model.
 
     </div>
 
@@ -609,10 +619,9 @@
 
         <p>
 
-            This version uses a TensorFlow Lite
-            <strong>.tflite</strong> model.
-
-            No model.json or .bin files are required.
+            Upload your TensorFlow Lite
+            <strong>.tflite</strong> model
+            and labels.json.
 
         </p>
 
@@ -625,7 +634,7 @@
                 for="modelInput"
             >
 
-                1. TFLite Model
+                TFLite Model
 
             </label>
 
@@ -647,7 +656,7 @@
                 for="labelsInput"
             >
 
-                2. labels.json
+                labels.json
 
             </label>
 
@@ -677,7 +686,7 @@
         </div>
 
 
-        <!-- MODEL INFORMATION -->
+        <!-- MODEL INFO -->
 
         <div
             id="modelInfo"
@@ -721,7 +730,7 @@
         </div>
 
 
-        <!-- PREVIEW -->
+        <!-- IMAGE PREVIEW -->
 
         <img
             id="preview"
@@ -748,7 +757,7 @@
 
 
     <!-- =====================================================
-         PREDICT
+         PREDICT BUTTON
          ===================================================== -->
 
     <div class="button-container">
@@ -794,15 +803,14 @@
     </div>
 
 
-    <!-- =====================================================
-         FOOTER
-         ===================================================== -->
+    <!-- FOOTER -->
 
     <div class="footer">
 
         Coral Species Classification AI
 
     </div>
+
 
 </div>
 
@@ -820,6 +828,16 @@ let labels = [];
 
 let modelLoaded = false;
 
+
+/*
+=========================================================
+MODEL INPUT SIZE
+
+Change these if your TFLite model uses another
+input resolution.
+=========================================================
+*/
+
 let inputHeight = 256;
 
 let inputWidth = 256;
@@ -828,15 +846,18 @@ let inputChannels = 3;
 
 
 /*
- * These tensors are kept globally so they can
- * be disposed properly.
- */
+=========================================================
+TEMPERATURE
 
-let inputTensor = null;
+1.0 = normal Softmax
 
-let predictionTensor = null;
+Higher values = less extreme confidence
 
-let probabilityTensor = null;
+2.0 = current setting
+=========================================================
+*/
+
+const temperature = 2.0;
 
 
 /* =========================================================
@@ -904,7 +925,7 @@ const loading =
 
 
 /* =========================================================
-   STATUS
+   STATUS FUNCTION
    ========================================================= */
 
 function setStatus(
@@ -986,7 +1007,7 @@ async function loadUploadedTFLiteModel() {
     try {
 
         /* -----------------------------------------------
-           CHECK MODEL
+           CHECK TFLITE FILE
            ----------------------------------------------- */
 
         const modelFile =
@@ -1036,13 +1057,13 @@ async function loadUploadedTFLiteModel() {
 
 
         setStatus(
-            "Reading TensorFlow Lite model...",
+            "Reading model files...",
             "loading"
         );
 
 
         modelInfo.innerHTML =
-            "Reading model and labels...";
+            "Reading labels.json...";
 
 
         /* -----------------------------------------------
@@ -1060,20 +1081,21 @@ async function loadUploadedTFLiteModel() {
 
 
         /*
-         * Accept:
-         *
-         * [
-         *   "coral1",
-         *   "coral2"
-         * ]
-         *
-         * OR:
-         *
-         * {
-         *   "0": "coral1",
-         *   "1": "coral2"
-         * }
-         */
+        Accept:
+
+        [
+            "species1",
+            "species2"
+        ]
+
+        OR:
+
+        {
+            "0": "species1",
+            "1": "species2"
+        }
+        */
+
 
         if (
             Array.isArray(
@@ -1086,6 +1108,7 @@ async function loadUploadedTFLiteModel() {
 
         }
 
+
         else if (
             labelsData &&
             typeof labelsData ===
@@ -1096,7 +1119,6 @@ async function loadUploadedTFLiteModel() {
                 Object.keys(
                     labelsData
                 )
-
                 .sort(
                     function(a, b) {
 
@@ -1107,7 +1129,6 @@ async function loadUploadedTFLiteModel() {
 
                     }
                 )
-
                 .map(
                     function(key) {
 
@@ -1118,6 +1139,7 @@ async function loadUploadedTFLiteModel() {
 
         }
 
+
         else {
 
             throw new Error(
@@ -1127,21 +1149,21 @@ async function loadUploadedTFLiteModel() {
         }
 
 
-        console.log(
-            "Labels:",
-            labels
-        );
-
-
         if (
             labels.length === 0
         ) {
 
             throw new Error(
-                "labels.json contains no classes."
+                "labels.json contains no labels."
             );
 
         }
+
+
+        console.log(
+            "Labels:",
+            labels
+        );
 
 
         /* -----------------------------------------------
@@ -1165,6 +1187,7 @@ async function loadUploadedTFLiteModel() {
 
 
         modelInfo.innerHTML =
+
             "Initializing TensorFlow Lite WebAssembly runtime...";
 
 
@@ -1181,21 +1204,7 @@ async function loadUploadedTFLiteModel() {
 
             throw new Error(
 
-                "TensorFlow Lite runtime was not loaded. Check your internet connection and the TFLite script."
-
-            );
-
-        }
-
-
-        if (
-            typeof tflite.loadTFLiteModel !==
-            "function"
-        ) {
-
-            throw new Error(
-
-                "tflite.loadTFLiteModel() is not available."
+                "TensorFlow Lite runtime was not loaded. Check your internet connection and TFLite script."
 
             );
 
@@ -1233,12 +1242,10 @@ async function loadUploadedTFLiteModel() {
            ----------------------------------------------- */
 
         /*
-         * Your previous model configuration
-         * uses 256 x 256 x 3.
-         *
-         * If your .tflite model uses a different
-         * input size, change these values.
-         */
+        Your original model uses:
+
+        256 × 256 × 3
+        */
 
         inputHeight =
             256;
@@ -1253,7 +1260,7 @@ async function loadUploadedTFLiteModel() {
 
 
         /* -----------------------------------------------
-           MODEL INFORMATION
+           MODEL INFO
            ----------------------------------------------- */
 
         modelInfo.innerHTML = `
@@ -1289,10 +1296,26 @@ async function loadUploadedTFLiteModel() {
             <br>
 
             <strong>
-                Classes:
+                Number of Labels:
             </strong>
 
             ${labels.length}
+
+            <br>
+
+            <strong>
+                Temperature:
+            </strong>
+
+            ${temperature}
+
+            <br>
+
+            <strong>
+                Probability:
+            </strong>
+
+            Stable Softmax
 
             <br>
 
@@ -1302,19 +1325,11 @@ async function loadUploadedTFLiteModel() {
 
             TensorFlow Lite / WebAssembly
 
-            <br>
-
-            <strong>
-                Output Normalization:
-            </strong>
-
-            Automatic Softmax
-
         `;
 
 
         /* -----------------------------------------------
-           READY
+           MODEL READY
            ----------------------------------------------- */
 
         modelLoaded =
@@ -1375,8 +1390,14 @@ async function loadUploadedTFLiteModel() {
 
 
         console.log(
-            "Classes:",
+            "Labels:",
             labels.length
+        );
+
+
+        console.log(
+            "Temperature:",
+            temperature
         );
 
 
@@ -1433,10 +1454,19 @@ async function loadUploadedTFLiteModel() {
 
                 <br><br>
 
-                Make sure you uploaded
-                a valid TensorFlow Lite
-                <strong>.tflite</strong>
-                model.
+                Make sure:
+
+                <br>
+
+                ✓ The file is a valid .tflite model
+
+                <br>
+
+                ✓ labels.json is valid
+
+                <br>
+
+                ✓ TensorFlow Lite runtime loaded correctly
 
             </div>
 
@@ -1573,6 +1603,14 @@ async function predictCoral() {
     }
 
 
+    let inputTensor =
+        null;
+
+
+    let predictionTensor =
+        null;
+
+
     const startTime =
         performance.now();
 
@@ -1612,13 +1650,6 @@ async function predictCoral() {
 
 
         /* -----------------------------------------------
-           CLEAN OLD TENSORS
-           ----------------------------------------------- */
-
-        disposePredictionTensors();
-
-
-        /* -----------------------------------------------
            LOAD IMAGE
            ----------------------------------------------- */
 
@@ -1655,7 +1686,7 @@ async function predictCoral() {
            RESIZE
            ----------------------------------------------- */
 
-        const resizedTensor =
+        inputTensor =
             tf.image.resizeBilinear(
 
                 inputTensor,
@@ -1668,68 +1699,43 @@ async function predictCoral() {
             );
 
 
-        /*
-         * Dispose the old image tensor.
-         */
-
-        inputTensor.dispose();
-
-
-        inputTensor =
-            resizedTensor;
-
-
         /* -----------------------------------------------
            FLOAT32
            ----------------------------------------------- */
 
-        const floatTensor =
+        inputTensor =
             inputTensor.toFloat();
 
 
-        inputTensor.dispose();
-
-
-        inputTensor =
-            floatTensor;
-
-
         /*
-         * IMPORTANT:
-         *
-         * The original Keras model was described
-         * as having:
-         *
-         *     Rescaling(1 / 255)
-         *
-         * Therefore this code does NOT divide
-         * the image by 255 here.
-         *
-         * If your TFLite model DOES NOT contain
-         * the Rescaling layer, change this section
-         * to:
-         *
-         *     inputTensor =
-         *         inputTensor.div(255.0);
-         *
-         */
+        ==================================================
+        NORMALIZATION
+        ==================================================
+
+        IMPORTANT:
+
+        If your TFLite model already contains:
+
+            Rescaling(1 / 255)
+
+        DO NOT divide by 255 here.
+
+        If your original Keras model had Rescaling,
+        the conversion to TFLite normally preserves it.
+
+        Therefore this code sends 0-255 FLOAT32 pixels.
+        ==================================================
+        */
 
 
         /* -----------------------------------------------
            ADD BATCH DIMENSION
            ----------------------------------------------- */
 
-        const batchedTensor =
+        inputTensor =
             inputTensor.expandDims(
                 0
             );
-
-
-        inputTensor.dispose();
-
-
-        inputTensor =
-            batchedTensor;
 
 
         console.log(
@@ -1738,8 +1744,14 @@ async function predictCoral() {
         );
 
 
+        console.log(
+            "Input tensor dtype:",
+            inputTensor.dtype
+        );
+
+
         /* -----------------------------------------------
-           RUN TFLITE MODEL
+           RUN TFLITE
            ----------------------------------------------- */
 
         predictionTensor =
@@ -1762,222 +1774,145 @@ async function predictCoral() {
             await predictionTensor.data();
 
 
-        const rawValues =
+        const logits =
             Array.from(
                 rawOutput
             );
 
 
         console.log(
-            "Raw TFLite output:",
-            rawValues
+            "================================"
         );
 
 
+        console.log(
+            "RAW TFLITE OUTPUT:"
+        );
+
+
+        console.log(
+            logits
+        );
+
+
+        /* =================================================
+           CHECK OUTPUT
+           ================================================= */
+
         if (
-            rawValues.length === 0
+            logits.length === 0
         ) {
 
             throw new Error(
-
                 "The TFLite model returned an empty output."
-
             );
 
         }
 
 
-        /* -----------------------------------------------
-           CHECK OUTPUT
-           ----------------------------------------------- */
+        /* =================================================
+           TEMPERATURE SCALING
+           ================================================= */
 
-        const outputSum =
-            rawValues.reduce(
+        const scaledLogits =
+            logits.map(
+                function(x) {
 
+                    return (
+                        x /
+                        temperature
+                    );
+
+                }
+            );
+
+
+        console.log(
+            "Temperature:",
+            temperature
+        );
+
+
+        console.log(
+            "Scaled logits:",
+            scaledLogits
+        );
+
+
+        /* =================================================
+           STABLE SOFTMAX
+           ================================================= */
+
+        /*
+        Stable Softmax:
+
+        exp(x - max)
+        ----------------
+        sum(exp(x - max))
+        */
+
+
+        const maxLogit =
+            Math.max(
+                ...scaledLogits
+            );
+
+
+        const expValues =
+            scaledLogits.map(
+                function(x) {
+
+                    return Math.exp(
+                        x -
+                        maxLogit
+                    );
+
+                }
+            );
+
+
+        const sumExp =
+            expValues.reduce(
                 function(
                     sum,
-                    value
+                    x
                 ) {
 
                     return (
                         sum +
-                        value
+                        x
                     );
 
                 },
-
                 0
-
             );
-
-
-        const isAlreadyProbability =
-            rawValues.every(
-
-                function(value) {
-
-                    return (
-
-                        Number.isFinite(
-                            value
-                        )
-
-                        &&
-
-                        value >= 0
-
-                        &&
-
-                        value <= 1
-
-                    );
-
-                }
-
-            )
-
-            &&
-
-            Math.abs(
-                outputSum - 1
-            ) < 0.01;
-
-
-        console.log(
-            "Output sum:",
-            outputSum
-        );
-
-
-        console.log(
-            "Already probability:",
-            isAlreadyProbability
-        );
-
-
-        /* -----------------------------------------------
-           NORMALIZE OUTPUT
-           ----------------------------------------------- */
-
-        if (
-            isAlreadyProbability
-        ) {
-
-            /*
-             * Model already returns
-             * probabilities.
-             */
-
-            probabilityTensor =
-                tf.tensor1d(
-                    rawValues,
-                    "float32"
-                );
-
-
-            console.log(
-                "Using model probabilities directly."
-            );
-
-        }
-
-        else {
-
-            /*
-             * Model returns raw logits/scores.
-             *
-             * Softmax converts:
-             *
-             *     [2756, 1428, 1104, ...]
-             *
-             * into:
-             *
-             *     [0.x, 0.x, 0.x, ...]
-             *
-             * where the sum is 1.
-             */
-
-            probabilityTensor =
-                tf.softmax(
-                    predictionTensor
-                );
-
-
-            console.log(
-                "Softmax applied to raw model output."
-            );
-
-        }
-
-
-        /* -----------------------------------------------
-           READ NORMALIZED PROBABILITIES
-           ----------------------------------------------- */
-
-        const probabilityData =
-            await probabilityTensor.data();
 
 
         const probabilities =
-            Array.from(
-                probabilityData
+            expValues.map(
+                function(x) {
+
+                    return (
+                        x /
+                        sumExp
+                    );
+
+                }
             );
 
 
         console.log(
-            "Normalized probabilities:",
+            "Softmax probabilities:",
             probabilities
         );
 
 
-        /* -----------------------------------------------
-           VERIFY PROBABILITY RANGE
-           ----------------------------------------------- */
-
-        for (
-            let i = 0;
-            i < probabilities.length;
-            i++
-        ) {
-
-            if (
-                !Number.isFinite(
-                    probabilities[i]
-                )
-            ) {
-
-                throw new Error(
-
-                    "The model produced an invalid probability."
-
-                );
-
-            }
-
-
-            if (
-                probabilities[i] < 0 ||
-                probabilities[i] > 1
-            ) {
-
-                throw new Error(
-
-                    "Probability normalization failed."
-
-                );
-
-            }
-
-        }
-
-
-        /* -----------------------------------------------
-           VERIFY TOTAL
-           ----------------------------------------------- */
+        /* =================================================
+           CHECK PROBABILITY TOTAL
+           ================================================= */
 
         const probabilityTotal =
             probabilities.reduce(
-
                 function(
                     sum,
                     value
@@ -1989,9 +1924,7 @@ async function predictCoral() {
                     );
 
                 },
-
                 0
-
             );
 
 
@@ -2001,9 +1934,20 @@ async function predictCoral() {
         );
 
 
-        /* -----------------------------------------------
+        /*
+        This should be approximately:
+
+            1.0
+
+        or:
+
+            100%
+        */
+
+
+        /* =================================================
            FIND TOP PREDICTION
-           ----------------------------------------------- */
+           ================================================= */
 
         let maxIndex =
             0;
@@ -2028,35 +1972,52 @@ async function predictCoral() {
         }
 
 
-        /* -----------------------------------------------
+        /* =================================================
            GET SPECIES
-           ----------------------------------------------- */
+           ================================================= */
 
         const predictedSpecies =
             labels[maxIndex] ||
             "Unknown";
 
 
-        /* -----------------------------------------------
-           CONFIDENCE
-           ----------------------------------------------- */
+        /* =================================================
+           GET CONFIDENCE
+           ================================================= */
 
-        const confidence =
+        let confidence =
             probabilities[maxIndex] *
             100;
 
 
-        /* -----------------------------------------------
+        /*
+        Clamp confidence to 0-100.
+
+        This prevents floating-point
+        edge cases from displaying
+        values such as 100.000001%.
+        */
+
+
+        confidence =
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    confidence
+                )
+            );
+
+
+        /* =================================================
            TOP 3
-           ----------------------------------------------- */
+           ================================================= */
 
         const indices =
             Array.from(
                 probabilities
             )
-
             .map(
-
                 function(
                     value,
                     index
@@ -2073,11 +2034,8 @@ async function predictCoral() {
                     };
 
                 }
-
             )
-
             .sort(
-
                 function(
                     a,
                     b
@@ -2089,18 +2047,13 @@ async function predictCoral() {
                     );
 
                 }
-
             )
-
             .slice(
-
                 0,
-
                 Math.min(
                     3,
                     probabilities.length
                 )
-
             );
 
 
@@ -2122,9 +2075,25 @@ async function predictCoral() {
                     "Unknown";
 
 
-                const percentage =
+                let percentage =
                     item.value *
                     100;
+
+
+                /*
+                Clamp each percentage
+                between 0 and 100.
+                */
+
+
+                percentage =
+                    Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            percentage
+                        )
+                    );
 
 
                 top3HTML += `
@@ -2149,9 +2118,7 @@ async function predictCoral() {
                             class="prediction-confidence"
                         >
 
-                            ${percentage.toFixed(
-                                2
-                            )}%
+                            ${percentage.toFixed(2)}%
 
                         </div>
 
@@ -2164,18 +2131,18 @@ async function predictCoral() {
         );
 
 
-        /* -----------------------------------------------
+        /* =================================================
            INFERENCE TIME
-           ----------------------------------------------- */
+           ================================================= */
 
         const inferenceTime =
             performance.now() -
             startTime;
 
 
-        /* -----------------------------------------------
+        /* =================================================
            DISPLAY RESULT
-           ----------------------------------------------- */
+           ================================================= */
 
         result.innerHTML = `
 
@@ -2199,13 +2166,13 @@ async function predictCoral() {
 
                 Confidence:
 
-                <strong>
+                <span
+                    class="confidence-value"
+                >
 
-                    ${confidence.toFixed(
-                        2
-                    )}%
+                    ${confidence.toFixed(2)}%
 
-                </strong>
+                </span>
 
             </div>
 
@@ -2213,9 +2180,7 @@ async function predictCoral() {
             <div class="top3">
 
                 <h3>
-
                     Top 3 Predictions
-
                 </h3>
 
 
@@ -2226,23 +2191,7 @@ async function predictCoral() {
 
 
                 <strong>
-
-                    Probability Total:
-
-                </strong>
-
-                ${(
-                    probabilityTotal * 100
-                ).toFixed(2)}%
-
-
-                <br><br>
-
-
-                <strong>
-
                     Inference Time:
-
                 </strong>
 
                 ${inferenceTime.toFixed(2)}
@@ -2253,9 +2202,7 @@ async function predictCoral() {
 
 
                 <strong>
-
                     Input Size:
-
                 </strong>
 
                 ${inputWidth}
@@ -2269,21 +2216,39 @@ async function predictCoral() {
 
 
                 <strong>
-
                     Number of Classes:
-
                 </strong>
 
                 ${probabilities.length}
+
+
+                <br><br>
+
+
+                <strong>
+                    Temperature:
+                </strong>
+
+                ${temperature}
+
+
+                <br><br>
+
+
+                <strong>
+                    Probability Sum:
+                </strong>
+
+                ${(probabilityTotal * 100).toFixed(2)}%
 
             </div>
 
         `;
 
 
-        /* -----------------------------------------------
-           CONSOLE
-           ----------------------------------------------- */
+        /* =================================================
+           CONSOLE RESULTS
+           ================================================= */
 
         console.log(
             "================================"
@@ -2291,7 +2256,7 @@ async function predictCoral() {
 
 
         console.log(
-            "FINAL PREDICTION"
+            "PREDICTION RESULT"
         );
 
 
@@ -2303,18 +2268,23 @@ async function predictCoral() {
 
         console.log(
             "Confidence:",
-            confidence.toFixed(2) +
-            "%"
+            confidence.toFixed(2) + "%"
         );
 
 
         console.log(
-            "Probability total:",
+            "Probability Sum:",
             (
                 probabilityTotal *
                 100
-            ).toFixed(2) +
-            "%"
+            ).toFixed(2) + "%"
+        );
+
+
+        console.log(
+            "Inference Time:",
+            inferenceTime.toFixed(2) +
+            " ms"
         );
 
 
@@ -2335,13 +2305,17 @@ async function predictCoral() {
 
         result.innerHTML = `
 
-            <div class="error-box">
+            <div
+                class="error-box"
+            >
 
                 <strong>
                     Prediction Error
                 </strong>
 
+
                 <br><br>
+
 
                 ${escapeHTML(
                     error.message
@@ -2356,8 +2330,38 @@ async function predictCoral() {
 
     finally {
 
-        disposePredictionTensors();
+        /* -----------------------------------------------
+           DISPOSE INPUT TENSOR
+           ----------------------------------------------- */
 
+        if (
+            inputTensor
+        ) {
+
+            inputTensor.dispose();
+
+        }
+
+
+        /* -----------------------------------------------
+           DISPOSE OUTPUT TENSOR
+           ----------------------------------------------- */
+
+        if (
+            predictionTensor &&
+            typeof
+            predictionTensor.dispose ===
+            "function"
+        ) {
+
+            predictionTensor.dispose();
+
+        }
+
+
+        /* -----------------------------------------------
+           UI
+           ----------------------------------------------- */
 
         loading.style.display =
             "none";
@@ -2367,59 +2371,6 @@ async function predictCoral() {
             !modelLoaded;
 
     }
-
-}
-
-
-/* =========================================================
-   DISPOSE TENSORS
-   ========================================================= */
-
-function disposePredictionTensors() {
-
-    if (
-        inputTensor &&
-        typeof inputTensor.dispose ===
-        "function"
-    ) {
-
-        inputTensor.dispose();
-
-    }
-
-
-    if (
-        predictionTensor &&
-        typeof predictionTensor.dispose ===
-        "function"
-    ) {
-
-        predictionTensor.dispose();
-
-    }
-
-
-    if (
-        probabilityTensor &&
-        typeof probabilityTensor.dispose ===
-        "function"
-    ) {
-
-        probabilityTensor.dispose();
-
-    }
-
-
-    inputTensor =
-        null;
-
-
-    predictionTensor =
-        null;
-
-
-    probabilityTensor =
-        null;
 
 }
 
@@ -2459,9 +2410,7 @@ function loadImage(
                     reject(
 
                         new Error(
-
                             "Could not load the selected image."
-
                         )
 
                     );
