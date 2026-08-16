@@ -1,1092 +1,62 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        Coral Species Classification AI
-    </title>
-
-
-    <!-- =====================================================
-         TENSORFLOW.JS 4.22.0
-         ===================================================== -->
-
-    <script
-        src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0">
-    </script>
-
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-
-        body {
-
-            margin: 0;
-
-            padding: 30px 15px;
-
-            font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-
-            background: #f4f7fb;
-
-            color: #222;
-        }
-
-
-        .container {
-
-            width: 100%;
-
-            max-width: 900px;
-
-            margin: auto;
-
-            background: white;
-
-            padding: 30px;
-
-            border-radius: 18px;
-
-            box-shadow:
-                0 8px 30px
-                rgba(0, 0, 0, 0.10);
-        }
-
-
-        h1 {
-
-            text-align: center;
-
-            margin:
-                0 0 10px 0;
-
-            font-size: 32px;
-
-            color: #0077b6;
-        }
-
-
-        .subtitle {
-
-            text-align: center;
-
-            color: #666;
-
-            margin-bottom: 30px;
-        }
-
-
-        /* =====================================================
-           STATUS
-           ===================================================== */
-
-        .status {
-
-            text-align: center;
-
-            padding: 14px;
-
-            border-radius: 8px;
-
-            margin-bottom: 25px;
-
-            background: #fff3cd;
-
-            color: #856404;
-
-            font-weight: bold;
-        }
-
-
-        .status.success {
-
-            background: #d4edda;
-
-            color: #155724;
-        }
-
-
-        .status.error {
-
-            background: #f8d7da;
-
-            color: #721c24;
-        }
-
-
-        .status.loading {
-
-            background: #d9edf7;
-
-            color: #31708f;
-        }
-
-
-        /* =====================================================
-           SECTION
-           ===================================================== */
-
-        .section {
-
-            margin-bottom: 25px;
-
-            padding: 25px;
-
-            border:
-                1px solid #ddd;
-
-            border-radius: 12px;
-
-            background: #fafafa;
-        }
-
-
-        .section h2 {
-
-            margin-top: 0;
-
-            color: #0077b6;
-
-            font-size: 22px;
-        }
-
-
-        .section p {
-
-            color: #666;
-
-            line-height: 1.5;
-        }
-
-
-        /* =====================================================
-           FILE INPUT
-           ===================================================== */
-
-        .file-group {
-
-            margin:
-                18px 0;
-        }
-
-
-        .file-group label {
-
-            display: block;
-
-            font-weight: bold;
-
-            margin-bottom: 8px;
-        }
-
-
-        input[type="file"] {
-
-            width: 100%;
-
-            padding: 10px;
-
-            border:
-                1px solid #ccc;
-
-            border-radius: 7px;
-
-            background: white;
-        }
-
-
-        /* =====================================================
-           BUTTON
-           ===================================================== */
-
-        .button-container {
-
-            text-align: center;
-
-            margin-top: 20px;
-        }
-
-
-        button {
-
-            padding:
-                14px 30px;
-
-            border: none;
-
-            border-radius: 9px;
-
-            background: #0077b6;
-
-            color: white;
-
-            font-size: 16px;
-
-            font-weight: bold;
-
-            cursor: pointer;
-
-            transition: 0.2s;
-        }
-
-
-        button:hover {
-
-            background: #005f8f;
-        }
-
-
-        button:disabled {
-
-            background: #aaa;
-
-            cursor: not-allowed;
-        }
-
-
-        /* =====================================================
-           MODEL INFORMATION
-           ===================================================== */
-
-        #modelInfo {
-
-            margin-top: 20px;
-
-            padding: 15px;
-
-            background: #eef6fb;
-
-            border-radius: 8px;
-
-            line-height: 1.7;
-
-            font-size: 14px;
-        }
-
-
-        /* =====================================================
-           PREVIEW
-           ===================================================== */
-
-        #preview {
-
-            display: none;
-
-            width: auto;
-
-            max-width: 100%;
-
-            max-height: 450px;
-
-            margin:
-                20px auto;
-
-            border-radius: 12px;
-
-            box-shadow:
-                0 5px 20px
-                rgba(0, 0, 0, 0.15);
-        }
-
-
-        /* =====================================================
-           RESULT
-           ===================================================== */
-
-        .result {
-
-            margin-top: 25px;
-
-            padding: 25px;
-
-            background: #f7f9fb;
-
-            border-radius: 12px;
-        }
-
-
-        .result-title {
-
-            text-align: center;
-
-            font-size: 18px;
-
-            color: #666;
-
-            margin-bottom: 10px;
-        }
-
-
-        .species {
-
-            text-align: center;
-
-            font-size: 30px;
-
-            font-weight: bold;
-
-            margin:
-                10px 0;
-
-            color: #0077b6;
-        }
-
-
-        .confidence {
-
-            text-align: center;
-
-            font-size: 21px;
-
-            margin-bottom: 25px;
-        }
-
-
-        /* =====================================================
-           TOP 3
-           ===================================================== */
-
-        .top3 {
-
-            background: white;
-
-            padding: 20px;
-
-            border-radius: 10px;
-        }
-
-
-        .top3 h3 {
-
-            margin-top: 0;
-
-            color: #0077b6;
-        }
-
-
-        .prediction-row {
-
-            display: flex;
-
-            justify-content:
-                space-between;
-
-            gap: 20px;
-
-            padding: 12px 0;
-
-            border-bottom:
-                1px solid #ddd;
-        }
-
-
-        .prediction-row:last-child {
-
-            border-bottom: none;
-        }
-
-
-        .prediction-name {
-
-            font-weight: bold;
-        }
-
-
-        .prediction-confidence {
-
-            font-weight: bold;
-        }
-
-
-        /* =====================================================
-           ERROR
-           ===================================================== */
-
-        .error-box {
-
-            margin-top: 20px;
-
-            padding: 15px;
-
-            background: #fff0f0;
-
-            border:
-                1px solid #e0aaaa;
-
-            border-radius: 8px;
-
-            color: #8a1c1c;
-
-            word-break: break-word;
-
-            line-height: 1.6;
-        }
-
-
-        /* =====================================================
-           LOADING
-           ===================================================== */
-
-        .loading {
-
-            display: none;
-
-            text-align: center;
-
-            margin: 20px 0;
-
-            font-weight: bold;
-        }
-
-
-        .spinner {
-
-            display: inline-block;
-
-            width: 22px;
-
-            height: 22px;
-
-            border:
-                3px solid #ddd;
-
-            border-top:
-                3px solid #0077b6;
-
-            border-radius: 50%;
-
-            animation:
-                spin 1s linear infinite;
-
-            vertical-align: middle;
-
-            margin-right: 8px;
-        }
-
-
-        @keyframes spin {
-
-            100% {
-
-                transform:
-                    rotate(360deg);
-            }
-        }
-
-
-        /* =====================================================
-           FOOTER
-           ===================================================== */
-
-        .footer {
-
-            text-align: center;
-
-            margin-top: 25px;
-
-            font-size: 13px;
-
-            color: #777;
-        }
-
-
-        /* =====================================================
-           MOBILE
-           ===================================================== */
-
-        @media (max-width: 600px) {
-
-            body {
-
-                padding:
-                    15px 10px;
-            }
-
-
-            .container {
-
-                padding: 20px;
-            }
-
-
-            h1 {
-
-                font-size: 25px;
-            }
-
-
-            .species {
-
-                font-size: 23px;
-            }
-
-
-            .prediction-row {
-
-                flex-direction:
-                    column;
-
-                gap: 5px;
-            }
-
-        }
-
-    </style>
-
-</head>
-
-
-<body>
-
-
-<div class="container">
-
-
-    <!-- =====================================================
-         TITLE
-         ===================================================== -->
-
-    <h1>
-        Coral Species Classification AI
-    </h1>
-
-
-    <div class="subtitle">
-
-        Deep Learning-Based Coral Species Identification
-
-    </div>
-
-
-    <!-- =====================================================
-         MODEL STATUS
-         ===================================================== -->
-
-    <div
-        id="status"
-        class="status"
-    >
-
-        Please upload the AI model files.
-
-    </div>
-
-
-    <!-- =====================================================
-         STEP 1: UPLOAD MODEL
-         ===================================================== -->
-
-    <div class="section">
-
-        <h2>
-            Step 1 — Upload AI Model
-        </h2>
-
-
-        <p>
-
-            Upload your TensorFlow.js model files
-            before making a prediction.
-
-        </p>
-
-
-        <!-- MODEL.JSON -->
-
-        <div class="file-group">
-
-            <label
-                for="modelJsonInput"
-            >
-
-                1. model.json
-
-            </label>
-
-
-            <input
-                type="file"
-                id="modelJsonInput"
-                accept=".json,application/json"
-            >
-
-        </div>
-
-
-        <!-- BIN FILES -->
-
-        <div class="file-group">
-
-            <label
-                for="modelBinInput"
-            >
-
-                2. Model Weight File(s) — .bin
-
-            </label>
-
-
-            <input
-                type="file"
-                id="modelBinInput"
-                accept=".bin"
-                multiple
-            >
-
-        </div>
-
-
-        <!-- LABELS -->
-
-        <div class="file-group">
-
-            <label
-                for="labelsInput"
-            >
-
-                3. labels.json
-
-            </label>
-
-
-            <input
-                type="file"
-                id="labelsInput"
-                accept=".json,application/json"
-            >
-
-        </div>
-
-
-        <!-- LOAD BUTTON -->
-
-        <div class="button-container">
-
-            <button
-                id="loadModelButton"
-                type="button"
-            >
-
-                LOAD AI MODEL
-
-            </button>
-
-        </div>
-
-
-        <!-- MODEL INFORMATION -->
-
-        <div
-            id="modelInfo"
-        >
-
-            No model loaded.
-
-        </div>
-
-    </div>
-
-
-    <!-- =====================================================
-         STEP 2: UPLOAD IMAGE
-         ===================================================== -->
-
-    <div class="section">
-
-        <h2>
-            Step 2 — Upload Coral Image
-        </h2>
-
-
-        <div class="file-group">
-
-            <label
-                for="imageInput"
-            >
-
-                Select Coral Image
-
-            </label>
-
-
-            <input
-                type="file"
-                id="imageInput"
-                accept="image/*"
-            >
-
-        </div>
-
-
-        <!-- IMAGE PREVIEW -->
-
-        <img
-            id="preview"
-            alt="Selected coral image"
-        >
-
-    </div>
-
-
-    <!-- =====================================================
-         LOADING
-         ===================================================== -->
-
-    <div
-        id="loading"
-        class="loading"
-    >
-
-        <span class="spinner"></span>
-
-        Processing image...
-
-    </div>
-
-
-    <!-- =====================================================
-         PREDICT BUTTON
-         ===================================================== -->
-
-    <div class="button-container">
-
-        <button
-            id="predictButton"
-            type="button"
-            disabled
-        >
-
-            PREDICT CORAL SPECIES
-
-        </button>
-
-    </div>
-
-
-    <!-- =====================================================
-         RESULT
-         ===================================================== -->
-
-    <div
-        id="result"
-        class="result"
-    >
-
-        <div class="result-title">
-
-            Prediction Result
-
-        </div>
-
-
-        <p
-            style="text-align:center;"
-        >
-
-            Load the AI model first,
-            then upload a coral image.
-
-        </p>
-
-    </div>
-
-
-    <!-- =====================================================
-         FOOTER
-         ===================================================== -->
-
-    <div class="footer">
-
-        Coral Species Classification AI
-
-    </div>
-
-
-</div>
-
-
-<script>
-
-
-/* =========================================================
-   GLOBAL VARIABLES
-   ========================================================= */
-
-let model = null;
-
-let labels = [];
-
-let modelLoaded = false;
-
-let modelBinFiles = [];
-
-let inputHeight = 256;
-
-let inputWidth = 256;
-
-let inputChannels = 3;
-
-
-/* =========================================================
-   HTML ELEMENTS
-   ========================================================= */
-
-const statusElement =
-    document.getElementById(
-        "status"
-    );
-
-
-const modelJsonInput =
-    document.getElementById(
-        "modelJsonInput"
-    );
-
-
-const modelBinInput =
-    document.getElementById(
-        "modelBinInput"
-    );
-
-
-const labelsInput =
-    document.getElementById(
-        "labelsInput"
-    );
-
-
-const loadModelButton =
-    document.getElementById(
-        "loadModelButton"
-    );
-
-
-const modelInfo =
-    document.getElementById(
-        "modelInfo"
-    );
-
-
-const imageInput =
-    document.getElementById(
-        "imageInput"
-    );
-
-
-const preview =
-    document.getElementById(
-        "preview"
-    );
-
-
-const predictButton =
-    document.getElementById(
-        "predictButton"
-    );
-
-
-const result =
-    document.getElementById(
-        "result"
-    );
-
-
-const loading =
-    document.getElementById(
-        "loading"
-    );
-
-
-/* =========================================================
-   STATUS
-   ========================================================= */
-
-function setStatus(
-    message,
-    type = ""
-) {
-
-    statusElement.textContent =
-        message;
-
-
-    statusElement.className =
-        "status " + type;
-
-}
-
-
-/* =========================================================
-   ESCAPE HTML
-   ========================================================= */
-
-function escapeHTML(
-    value
-) {
-
-    return String(value)
-
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-
-        .replace(
-            /</g,
-            "&lt;"
-        )
-
-        .replace(
-            />/g,
-            "&gt;"
-        )
-
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-
-}
-
-
-/* =========================================================
-   LOAD MODEL BUTTON
-   ========================================================= */
-
-loadModelButton.addEventListener(
-
-    "click",
-
-    async function() {
-
-        await loadUploadedModel();
-
-    }
-
-);
-
-
-/* =========================================================
-   LOAD UPLOADED MODEL
-   ========================================================= */
-
 async function loadUploadedModel() {
 
     try {
 
-        /* -----------------------------------------------
-           CHECK MODEL.JSON
-           ----------------------------------------------- */
+        // =====================================================
+        // GET UPLOADED FILES
+        // =====================================================
 
-        const modelJsonFile =
-            modelJsonInput.files[0];
+        const modelJsonFile = modelJsonInput.files[0];
+        const modelBinFiles = Array.from(modelBinInput.files);
+        const labelsFile = labelsInput.files[0];
 
+
+        // =====================================================
+        // VALIDATE FILES
+        // =====================================================
 
         if (!modelJsonFile) {
-
-            throw new Error(
-                "Please select model.json."
-            );
-
+            throw new Error("Please select model.json.");
         }
 
-
-        /* -----------------------------------------------
-           CHECK BIN FILES
-           ----------------------------------------------- */
-
-        modelBinFiles =
-            Array.from(
-                modelBinInput.files
-            );
-
-
-        if (
-            modelBinFiles.length === 0
-        ) {
-
+        if (modelBinFiles.length === 0) {
             throw new Error(
-                "Please select at least one .bin weight file."
+                "Please select all required .bin weight files."
             );
-
         }
-
-
-        /* -----------------------------------------------
-           CHECK LABELS
-           ----------------------------------------------- */
-
-        const labelsFile =
-            labelsInput.files[0];
-
 
         if (!labelsFile) {
-
-            throw new Error(
-                "Please select labels.json."
-            );
-
+            throw new Error("Please select labels.json.");
         }
 
 
-        /* -----------------------------------------------
-           UI
-           ----------------------------------------------- */
+        // =====================================================
+        // UPDATE UI
+        // =====================================================
 
-        loadModelButton.disabled =
-            true;
+        loadModelButton.disabled = true;
+        predictButton.disabled = true;
 
-
-        predictButton.disabled =
-            true;
-
-
-        modelLoaded =
-            false;
-
+        modelLoaded = false;
 
         setStatus(
             "Reading model files...",
             "loading"
         );
 
-
         modelInfo.innerHTML =
-            "Reading model.json...";
+            "Reading model.json and weight files...";
 
 
-        /* -----------------------------------------------
-           READ MODEL.JSON
-           ----------------------------------------------- */
+        // =====================================================
+        // READ MODEL.JSON
+        // =====================================================
 
         const modelText =
             await modelJsonFile.text();
 
-
         const modelJSON =
-            JSON.parse(
-                modelText
-            );
+            JSON.parse(modelText);
 
 
         console.log(
@@ -1095,14 +65,13 @@ async function loadUploadedModel() {
         );
 
 
-        /* -----------------------------------------------
-           CHECK FORMAT
-           ----------------------------------------------- */
+        // =====================================================
+        // CHECK MODEL FORMAT
+        // =====================================================
 
         if (
             modelJSON.format &&
-            modelJSON.format !==
-            "layers-model"
+            modelJSON.format !== "layers-model"
         ) {
 
             console.warn(
@@ -1113,37 +82,148 @@ async function loadUploadedModel() {
         }
 
 
-        /* -----------------------------------------------
-           READ LABELS.JSON
-           ----------------------------------------------- */
+        // =====================================================
+        // CHECK WEIGHTS MANIFEST
+        // =====================================================
+
+        if (
+            !modelJSON.weightsManifest ||
+            !Array.isArray(modelJSON.weightsManifest)
+        ) {
+
+            throw new Error(
+                "The uploaded model.json does not contain a valid weightsManifest."
+            );
+
+        }
+
+
+        // =====================================================
+        // SHOW EXPECTED BIN FILES
+        // =====================================================
+
+        const expectedBinFiles = [];
+
+        modelJSON.weightsManifest.forEach(
+            function(manifest) {
+
+                if (
+                    !manifest.paths ||
+                    !Array.isArray(manifest.paths)
+                ) {
+
+                    throw new Error(
+                        "Invalid weightsManifest paths."
+                    );
+
+                }
+
+                manifest.paths.forEach(
+                    function(path) {
+
+                        expectedBinFiles.push(
+                            path
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+        console.log(
+            "Expected BIN files:",
+            expectedBinFiles
+        );
+
+
+        console.log(
+            "Uploaded BIN files:",
+            modelBinFiles.map(
+                file => file.name
+            )
+        );
+
+
+        // =====================================================
+        // VERIFY BIN FILENAMES
+        // =====================================================
+
+        const uploadedNames =
+            modelBinFiles.map(
+                file => file.name
+            );
+
+
+        const missingFiles =
+            expectedBinFiles.filter(
+                expected =>
+                    !uploadedNames.includes(expected)
+            );
+
+
+        if (missingFiles.length > 0) {
+
+            throw new Error(
+                "Missing required .bin file(s): " +
+                missingFiles.join(", ")
+            );
+
+        }
+
+
+        // =====================================================
+        // CHECK FOR EXTRA BIN FILES
+        // =====================================================
+
+        const extraFiles =
+            uploadedNames.filter(
+                uploaded =>
+                    !expectedBinFiles.includes(uploaded)
+            );
+
+
+        if (extraFiles.length > 0) {
+
+            console.warn(
+                "Extra .bin files uploaded:",
+                extraFiles
+            );
+
+        }
+
+
+        // =====================================================
+        // READ LABELS.JSON
+        // =====================================================
 
         const labelsText =
             await labelsFile.text();
 
-
         const labelsData =
-            JSON.parse(
-                labelsText
-            );
+            JSON.parse(labelsText);
 
 
         /*
-           Accept either:
+        Accept either:
 
-           ["coral1", "coral2"]
+        [
+            "coral1",
+            "coral2"
+        ]
 
-           OR
+        OR
 
-           {
-               "0": "coral1",
-               "1": "coral2"
-           }
+        {
+            "0": "coral1",
+            "1": "coral2"
+        }
         */
 
+
         if (
-            Array.isArray(
-                labelsData
-            )
+            Array.isArray(labelsData)
         ) {
 
             labels =
@@ -1152,31 +232,29 @@ async function loadUploadedModel() {
         }
 
         else if (
-            typeof labelsData ===
-            "object"
+            typeof labelsData === "object" &&
+            labelsData !== null
         ) {
 
             labels =
-                Object.keys(
-                    labelsData
-                )
-                .sort(
-                    function(a, b) {
+                Object.keys(labelsData)
+                    .sort(
+                        function(a, b) {
 
-                        return (
-                            Number(a) -
-                            Number(b)
-                        );
+                            return (
+                                Number(a) -
+                                Number(b)
+                            );
 
-                    }
-                )
-                .map(
-                    function(key) {
+                        }
+                    )
+                    .map(
+                        function(key) {
 
-                        return labelsData[key];
+                            return labelsData[key];
 
-                    }
-                );
+                        }
+                    );
 
         }
 
@@ -1195,187 +273,50 @@ async function loadUploadedModel() {
         );
 
 
-        /* -----------------------------------------------
-           CHECK WEIGHTS MANIFEST
-           ----------------------------------------------- */
-
-        if (
-            !modelJSON.weightsManifest ||
-            !Array.isArray(
-                modelJSON.weightsManifest
-            )
-        ) {
-
-            throw new Error(
-
-                "The uploaded model.json does not contain a valid weightsManifest."
-
-            );
-
-        }
-
-
-        /* -----------------------------------------------
-           CREATE BLOB URLS FOR BIN FILES
-           ----------------------------------------------- */
-
-        const binURLs =
-            modelBinFiles.map(
-                function(file) {
-
-                    return URL.createObjectURL(
-                        file
-                    );
-
-                }
-            );
-
-
-        console.log(
-            "Uploaded BIN files:",
-            modelBinFiles
-        );
-
-
-        /* -----------------------------------------------
-           MAP BIN FILES
-           ----------------------------------------------- */
-
-        let binCounter = 0;
-
-
-        modelJSON.weightsManifest
-            .forEach(
-                function(manifest) {
-
-                    const paths =
-                        manifest.paths;
-
-
-                    if (
-                        !Array.isArray(
-                            paths
-                        )
-                    ) {
-
-                        throw new Error(
-                            "Invalid weightsManifest paths."
-                        );
-
-                    }
-
-
-                    /*
-                       Replace every original
-                       .bin filename with the
-                       corresponding uploaded
-                       Blob URL.
-                    */
-
-                    manifest.paths =
-                        paths.map(
-                            function() {
-
-                                if (
-                                    binCounter >=
-                                    binURLs.length
-                                ) {
-
-                                    throw new Error(
-
-                                        "Not enough .bin files were uploaded."
-
-                                    );
-
-                                }
-
-
-                                const url =
-                                    binURLs[
-                                        binCounter
-                                    ];
-
-
-                                binCounter++;
-
-
-                                return url;
-
-                            }
-                        );
-
-                }
-            );
-
-
-        /* -----------------------------------------------
-           CHECK BIN COUNT
-           ----------------------------------------------- */
-
-        if (
-            binCounter !==
-            binURLs.length
-        ) {
-
-            console.warn(
-
-                "Number of uploaded .bin files (" +
-                binURLs.length +
-                ") differs from the number of paths referenced by model.json (" +
-                binCounter +
-                ")."
-
-            );
-
-        }
-
-
-        /* -----------------------------------------------
-           CREATE MODIFIED MODEL JSON
-           ----------------------------------------------- */
-
-        const modifiedModelBlob =
-            new Blob(
-                [
-                    JSON.stringify(
-                        modelJSON
-                    )
-                ],
-                {
-                    type:
-                        "application/json"
-                }
-            );
-
-
-        const modifiedModelURL =
-            URL.createObjectURL(
-                modifiedModelBlob
-            );
-
-
-        /* -----------------------------------------------
-           LOAD TENSORFLOW.JS MODEL
-           ----------------------------------------------- */
+        // =====================================================
+        // LOAD MODEL DIRECTLY FROM UPLOADED FILES
+        // =====================================================
 
         setStatus(
             "Loading TensorFlow.js model...",
             "loading"
         );
 
-
         modelInfo.innerHTML =
             "Loading neural network...";
 
 
+        /*
+        IMPORTANT:
+
+        TensorFlow.js provides browserFiles() specifically
+        for loading user-selected model.json and .bin files.
+
+        This avoids:
+        - fetch()
+        - Blob URL manipulation
+        - manual weightsManifest modification
+        */
+
+        const modelFiles = [
+            modelJsonFile,
+            ...modelBinFiles
+        ];
+
+
         console.log(
-            "Calling tf.loadLayersModel()..."
+            "Files passed to TensorFlow.js:",
+            modelFiles.map(
+                file => file.name
+            )
         );
 
 
         model =
             await tf.loadLayersModel(
-                modifiedModelURL
+                tf.io.browserFiles(
+                    modelFiles
+                )
             );
 
 
@@ -1385,9 +326,9 @@ async function loadUploadedModel() {
         );
 
 
-        /* -----------------------------------------------
-           GET INPUT SHAPE
-           ----------------------------------------------- */
+        // =====================================================
+        // GET INPUT SHAPE
+        // =====================================================
 
         const inputShape =
             model.inputs[0].shape;
@@ -1405,12 +346,8 @@ async function loadUploadedModel() {
         ) {
 
             throw new Error(
-
                 "Unexpected model input shape: " +
-                JSON.stringify(
-                    inputShape
-                )
-
+                JSON.stringify(inputShape)
             );
 
         }
@@ -1419,18 +356,16 @@ async function loadUploadedModel() {
         inputHeight =
             inputShape[1];
 
-
         inputWidth =
             inputShape[2];
-
 
         inputChannels =
             inputShape[3];
 
 
-        /* -----------------------------------------------
-           GET OUTPUT SHAPE
-           ----------------------------------------------- */
+        // =====================================================
+        // GET OUTPUT SHAPE
+        // =====================================================
 
         const outputShape =
             model.outputs[0].shape;
@@ -1448,9 +383,9 @@ async function loadUploadedModel() {
             ];
 
 
-        /* -----------------------------------------------
-           LABEL COUNT
-           ----------------------------------------------- */
+        // =====================================================
+        // CHECK LABEL COUNT
+        // =====================================================
 
         if (
             labels.length !==
@@ -1458,24 +393,26 @@ async function loadUploadedModel() {
         ) {
 
             console.warn(
-
-                "Label count does not match model output."
-
+                "Label count does not match model output.",
+                {
+                    labels: labels.length,
+                    classes: numberOfClasses
+                }
             );
 
         }
 
 
-        /* -----------------------------------------------
-           MODEL SUMMARY
-           ----------------------------------------------- */
+        // =====================================================
+        // MODEL SUMMARY
+        // =====================================================
 
         model.summary();
 
 
-        /* -----------------------------------------------
-           MODEL INFORMATION
-           ----------------------------------------------- */
+        // =====================================================
+        // MODEL INFORMATION
+        // =====================================================
 
         modelInfo.innerHTML = `
 
@@ -1492,9 +429,7 @@ async function loadUploadedModel() {
             </strong>
 
             ${escapeHTML(
-                JSON.stringify(
-                    inputShape
-                )
+                JSON.stringify(inputShape)
             )}
 
             <br>
@@ -1504,9 +439,7 @@ async function loadUploadedModel() {
             </strong>
 
             ${escapeHTML(
-                JSON.stringify(
-                    outputShape
-                )
+                JSON.stringify(outputShape)
             )}
 
             <br>
@@ -1548,16 +481,13 @@ async function loadUploadedModel() {
         `;
 
 
-        /* -----------------------------------------------
-           MODEL READY
-           ----------------------------------------------- */
+        // =====================================================
+        // MODEL READY
+        // =====================================================
 
-        modelLoaded =
-            true;
+        modelLoaded = true;
 
-
-        predictButton.disabled =
-            false;
+        predictButton.disabled = false;
 
 
         setStatus(
@@ -1594,42 +524,36 @@ async function loadUploadedModel() {
             "================================"
         );
 
-
         console.log(
             "MODEL READY"
         );
-
 
         console.log(
             "Input:",
             inputShape
         );
 
-
         console.log(
             "Output:",
             outputShape
         );
-
 
         console.log(
             "Classes:",
             numberOfClasses
         );
 
-
         console.log(
             "Labels:",
             labels.length
         );
 
-
         console.log(
             "================================"
         );
 
-    }
 
+    }
 
     catch (error) {
 
@@ -1639,20 +563,13 @@ async function loadUploadedModel() {
         );
 
 
-        model =
-            null;
+        model = null;
 
+        labels = [];
 
-        labels =
-            [];
+        modelLoaded = false;
 
-
-        modelLoaded =
-            false;
-
-
-        predictButton.disabled =
-            true;
+        predictButton.disabled = true;
 
 
         setStatus(
@@ -1678,7 +595,7 @@ async function loadUploadedModel() {
                 <br><br>
 
                 <strong>
-                    Make sure you uploaded:
+                    Required files:
                 </strong>
 
                 <br>
@@ -1687,7 +604,8 @@ async function loadUploadedModel() {
 
                 <br>
 
-                ✓ All required .bin files
+                ✓ All .bin files matching
+                  model.json
 
                 <br>
 
@@ -1699,666 +617,10 @@ async function loadUploadedModel() {
 
     }
 
-
     finally {
 
-        loadModelButton.disabled =
-            false;
+        loadModelButton.disabled = false;
 
     }
 
 }
-
-
-/* =========================================================
-   IMAGE PREVIEW
-   ========================================================= */
-
-imageInput.addEventListener(
-
-    "change",
-
-    function() {
-
-        const file =
-            this.files[0];
-
-
-        if (!file) {
-
-            preview.style.display =
-                "none";
-
-            return;
-
-        }
-
-
-        if (
-            !file.type.startsWith(
-                "image/"
-            )
-        ) {
-
-            alert(
-                "Please select a valid image file."
-            );
-
-
-            this.value = "";
-
-
-            preview.style.display =
-                "none";
-
-
-            return;
-
-        }
-
-
-        const imageURL =
-            URL.createObjectURL(
-                file
-            );
-
-
-        preview.src =
-            imageURL;
-
-
-        preview.style.display =
-            "block";
-
-    }
-
-);
-
-
-/* =========================================================
-   PREDICT BUTTON
-   ========================================================= */
-
-predictButton.addEventListener(
-
-    "click",
-
-    async function() {
-
-        await predictCoral();
-
-    }
-
-);
-
-
-/* =========================================================
-   PREDICT CORAL
-   ========================================================= */
-
-async function predictCoral() {
-
-    if (!modelLoaded) {
-
-        alert(
-            "Please load the AI model first."
-        );
-
-        return;
-
-    }
-
-
-    const file =
-        imageInput.files[0];
-
-
-    if (!file) {
-
-        alert(
-            "Please upload a coral image first."
-        );
-
-        return;
-
-    }
-
-
-    let inputTensor =
-        null;
-
-
-    let predictionTensor =
-        null;
-
-
-    const startTime =
-        performance.now();
-
-
-    try {
-
-        /* -----------------------------------------------
-           UI
-           ----------------------------------------------- */
-
-        predictButton.disabled =
-            true;
-
-
-        loading.style.display =
-            "block";
-
-
-        result.innerHTML = `
-
-            <div class="result-title">
-
-                Prediction Result
-
-            </div>
-
-            <p
-                style="text-align:center;"
-            >
-
-                Analyzing coral image...
-
-            </p>
-
-        `;
-
-
-        /* -----------------------------------------------
-           LOAD IMAGE
-           ----------------------------------------------- */
-
-        const image =
-            await loadImage(
-                file
-            );
-
-
-        console.log(
-            "Image size:",
-            image.width,
-            image.height
-        );
-
-
-        /* -----------------------------------------------
-           CREATE TENSOR
-           ----------------------------------------------- */
-
-        inputTensor =
-            tf.browser.fromPixels(
-                image
-            );
-
-
-        console.log(
-            "Original tensor:",
-            inputTensor.shape
-        );
-
-
-        /* -----------------------------------------------
-           RESIZE
-           ----------------------------------------------- */
-
-        inputTensor =
-            tf.image.resizeBilinear(
-
-                inputTensor,
-
-                [
-                    inputHeight,
-                    inputWidth
-                ]
-
-            );
-
-
-        /* -----------------------------------------------
-           FLOAT
-           ----------------------------------------------- */
-
-        inputTensor =
-            inputTensor.toFloat();
-
-
-        /*
-        ==================================================
-        IMPORTANT NORMALIZATION
-        ==================================================
-
-        If your model contains:
-
-            Rescaling(1./255)
-
-        DO NOT divide by 255 here.
-
-        If your model does NOT contain Rescaling,
-        use:
-
-            inputTensor =
-                inputTensor.div(255.0);
-
-        ==================================================
-        */
-
-
-        /* -----------------------------------------------
-           ADD BATCH DIMENSION
-           ----------------------------------------------- */
-
-        inputTensor =
-            inputTensor.expandDims(
-                0
-            );
-
-
-        console.log(
-            "Final tensor:",
-            inputTensor.shape
-        );
-
-
-        /* -----------------------------------------------
-           PREDICTION
-           ----------------------------------------------- */
-
-        predictionTensor =
-            model.predict(
-                inputTensor
-            );
-
-
-        console.log(
-            "Prediction tensor:",
-            predictionTensor
-        );
-
-
-        /* -----------------------------------------------
-           GET DATA
-           ----------------------------------------------- */
-
-        const probabilities =
-            await predictionTensor.data();
-
-
-        console.log(
-            "Probabilities:",
-            probabilities
-        );
-
-
-        /* -----------------------------------------------
-           FIND TOP PREDICTION
-           ----------------------------------------------- */
-
-        let maxIndex =
-            0;
-
-
-        for (
-            let i = 1;
-            i < probabilities.length;
-            i++
-        ) {
-
-            if (
-                probabilities[i] >
-                probabilities[maxIndex]
-            ) {
-
-                maxIndex =
-                    i;
-
-            }
-
-        }
-
-
-        const predictedSpecies =
-            labels[maxIndex] ||
-            "Unknown";
-
-
-        const confidence =
-            probabilities[maxIndex] *
-            100;
-
-
-        /* -----------------------------------------------
-           TOP 3
-           ----------------------------------------------- */
-
-        const indices =
-            Array.from(
-                probabilities
-            )
-            .map(
-                function(
-                    value,
-                    index
-                ) {
-
-                    return {
-                        index: index,
-                        value: value
-                    };
-
-                }
-            )
-            .sort(
-                function(a, b) {
-
-                    return (
-                        b.value -
-                        a.value
-                    );
-
-                }
-            )
-            .slice(
-                0,
-                Math.min(
-                    3,
-                    probabilities.length
-                )
-            );
-
-
-        let top3HTML =
-            "";
-
-
-        indices.forEach(
-
-            function(
-                item,
-                position
-            ) {
-
-                const species =
-                    labels[
-                        item.index
-                    ] ||
-                    "Unknown";
-
-
-                const percentage =
-                    item.value *
-                    100;
-
-
-                top3HTML += `
-
-                    <div
-                        class="prediction-row"
-                    >
-
-                        <div
-                            class="prediction-name"
-                        >
-
-                            ${position + 1}.
-                            ${escapeHTML(
-                                species
-                            )}
-
-                        </div>
-
-
-                        <div
-                            class="prediction-confidence"
-                        >
-
-                            ${percentage.toFixed(2)}%
-
-                        </div>
-
-                    </div>
-
-                `;
-
-            }
-
-        );
-
-
-        /* -----------------------------------------------
-           INFERENCE TIME
-           ----------------------------------------------- */
-
-        const inferenceTime =
-            performance.now() -
-            startTime;
-
-
-        /* -----------------------------------------------
-           DISPLAY
-           ----------------------------------------------- */
-
-        result.innerHTML = `
-
-            <div class="result-title">
-
-                Predicted Coral Species
-
-            </div>
-
-
-            <div class="species">
-
-                ${escapeHTML(
-                    predictedSpecies
-                )}
-
-            </div>
-
-
-            <div class="confidence">
-
-                Confidence:
-
-                <strong>
-
-                    ${confidence.toFixed(2)}%
-
-                </strong>
-
-            </div>
-
-
-            <div class="top3">
-
-                <h3>
-                    Top 3 Predictions
-                </h3>
-
-
-                ${top3HTML}
-
-
-                <hr>
-
-
-                <strong>
-                    Inference Time:
-                </strong>
-
-                ${inferenceTime.toFixed(2)}
-                ms
-
-
-                <br><br>
-
-
-                <strong>
-                    Input Size:
-                </strong>
-
-                ${inputWidth}
-                ×
-                ${inputHeight}
-                ×
-                ${inputChannels}
-
-
-                <br><br>
-
-
-                <strong>
-                    Number of Classes:
-                </strong>
-
-                ${probabilities.length}
-
-            </div>
-
-        `;
-
-
-        console.log(
-            "Predicted species:",
-            predictedSpecies
-        );
-
-
-        console.log(
-            "Confidence:",
-            confidence.toFixed(2) + "%"
-        );
-
-
-    }
-
-
-    catch (error) {
-
-        console.error(
-            "PREDICTION ERROR:",
-            error
-        );
-
-
-        result.innerHTML = `
-
-            <div class="error-box">
-
-                <strong>
-                    Prediction Error
-                </strong>
-
-                <br><br>
-
-                ${escapeHTML(
-                    error.message
-                )}
-
-            </div>
-
-        `;
-
-    }
-
-
-    finally {
-
-        if (
-            inputTensor
-        ) {
-
-            inputTensor.dispose();
-
-        }
-
-
-        if (
-            predictionTensor &&
-            typeof
-            predictionTensor.dispose ===
-            "function"
-        ) {
-
-            predictionTensor.dispose();
-
-        }
-
-
-        loading.style.display =
-            "none";
-
-
-        predictButton.disabled =
-            !modelLoaded;
-
-    }
-
-}
-
-
-/* =========================================================
-   LOAD IMAGE
-   ========================================================= */
-
-function loadImage(
-    file
-) {
-
-    return new Promise(
-
-        function(
-            resolve,
-            reject
-        ) {
-
-            const image =
-                new Image();
-
-
-            image.onload =
-                function() {
-
-                    resolve(
-                        image
-                    );
-
-                };
-
-
-            image.onerror =
-                function() {
-
-                    reject(
-
-                        new Error(
-                            "Could not load the selected image."
-                        )
-
-                    );
-
-                };
-
-
-            image.src =
-                URL.createObjectURL(
-                    file
-                );
-
-        }
-
-    );
-
-}
-
-
-</script>
-
-
-</body>
-
-</html>
